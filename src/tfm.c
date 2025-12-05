@@ -4,11 +4,14 @@ struct termios orig_termios;    // original terminal attributes
 struct dirent **current_dir;    // array of pointers to directory entries
 int selected = 2;               // what element in dir is being targeted
 int n_files;                    // number of files in dir
+int scroll_offset = 0;          // Index of the first file visible at the top
+int list_height = 0;            // How many files fit on the screen
 
 int main()
 {
     enableRawMode();
     load_directory();
+    update_terminal_size();
     update_Screen();
 
     for (int input = 0; input != -1;)
@@ -19,16 +22,17 @@ int main()
             // Move upwards in dir
             case ARROW_UP:
             {
-                if (selected > 2) selected--;
-                else selected = n_files - 1;
+                selected = selected > 2 ? selected - 1 : n_files - 1;
+                if (selected < scroll_offset) scroll_offset = selected;
+                if (selected >= scroll_offset + list_height) scroll_offset = selected - list_height + 1;
                 break;
             }
 
-            // Move downward in dir
             case ARROW_DOWN:
             {
-                if (selected < n_files - 1) selected++;
-                else selected = 2;
+                selected = selected < n_files - 1 ? selected + 1 : 2;
+                if (selected < scroll_offset) scroll_offset = selected;
+                if (selected >= scroll_offset + list_height) scroll_offset = selected - list_height + 1;
                 break;
             }
 
@@ -48,12 +52,15 @@ int main()
                 chdir("..");
                 load_directory();
                 selected = 2;
+                scroll_offset = 0;
 
                 if (strlen(previous_folder_name) > 0)
                     for (int i = 0; i < n_files; i++)
                         if (strcmp(current_dir[i]->d_name, previous_folder_name) == 0)
                         {
                             selected = i;
+                            if (selected >= scroll_offset + list_height)
+                                scroll_offset = selected - list_height + 2;
                             break;
                         }
                 break;
@@ -68,6 +75,7 @@ int main()
                 {
                     load_directory();
                     selected = 2;
+                    scroll_offset = 0;
                 }
                 break;
             }
@@ -90,6 +98,9 @@ int main()
 
     return 0;
 }
+
+
+// Drawing part --------------------------------------------------------------------------------------------------------
 
 #define CLEAR "\033[2J"
 #define RESET "\033[0m"
@@ -123,6 +134,14 @@ long get_directory_size()
     return total_bytes;
 }
 
+void update_terminal_size()
+{
+    struct winsize w;
+    ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
+    list_height = w.ws_row - 5;
+    if (list_height < 1) list_height = 1;
+}
+
 void update_Screen()
 {
     printf(CLEAR HOME);
@@ -139,8 +158,10 @@ void update_Screen()
     for (int k = 0; k < BOX_WIDTH + 2; k++) printf("─");
     printf("┐\r\n");
 
-    for (int i = 2; i < n_files; i++)
+    for (int i = scroll_offset > 2 ? scroll_offset : 2; i < scroll_offset + list_height; i++)
     {
+        if (i >= n_files) break;
+
         struct dirent *entry = current_dir[i];
 
         const char *select_code = (i == selected) ? INVERT : "";
