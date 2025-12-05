@@ -93,6 +93,7 @@ int main()
             default: break;
         }
 
+        update_terminal_size();
         update_Screen();
     }
 
