@@ -1,4 +1,4 @@
-#include "../lib/TMF.h"
+#include "../lib/tfm.h"
 
 struct termios orig_termios;    // original terminal attributes
 struct dirent **current_dir;    // array of pointers to directory entries
@@ -11,8 +11,7 @@ int main()
     load_directory();
     update_Screen();
 
-    int running = 1;
-    for (int input; running;)
+    for (int input = 0; input != -1;)
     {
         input = readKey();
         switch (input)
@@ -21,6 +20,7 @@ int main()
             case ARROW_UP:
             {
                 if (selected > 2) selected--;
+                else selected = n_files - 1;
                 break;
             }
 
@@ -28,15 +28,34 @@ int main()
             case ARROW_DOWN:
             {
                 if (selected < n_files - 1) selected++;
+                else selected = 2;
                 break;
             }
 
-            // Go to ".."
+            // Go to parent directory
             case ARROW_LEFT:
             {
+                char cwd[PATH_MAX];
+                char previous_folder_name[256] = {0};
+
+                if (getcwd(cwd, sizeof(cwd)) != NULL)
+                {
+                    char *last_slash = strrchr(cwd, '/');
+                    if (last_slash != NULL)
+                        strncpy(previous_folder_name, last_slash + 1, sizeof(previous_folder_name) - 1);
+                }
+
                 chdir("..");
                 load_directory();
                 selected = 2;
+
+                if (strlen(previous_folder_name) > 0)
+                    for (int i = 0; i < n_files; i++)
+                        if (strcmp(current_dir[i]->d_name, previous_folder_name) == 0)
+                        {
+                            selected = i;
+                            break;
+                        }
                 break;
             }
 
@@ -45,16 +64,11 @@ int main()
             {
                 struct dirent *entry = current_dir[selected];
                 bool is_dir = (entry->d_type == DT_DIR);
-
-                if (is_dir && strcmp(entry->d_name, ".") != 0)
+                if (is_dir && strcmp(entry->d_name, ".") != 0 && chdir(entry->d_name) == 0)
                 {
-                    if (chdir(entry->d_name) == 0)
-                    {
-                        load_directory();
-                        selected = 2;
-                    }
+                    load_directory();
+                    selected = 2;
                 }
-
                 break;
             }
 
@@ -63,7 +77,7 @@ int main()
             case 'Q':
             {
                 free_directory();
-                running = 0;
+                input = -1;
                 break;
             }
 

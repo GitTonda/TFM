@@ -1,4 +1,4 @@
-#include "../lib/TMF.h"
+#include "../lib/tfm.h"
 #include "../lib/console.h"
 
 void enableRawMode()

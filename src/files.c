@@ -1,4 +1,4 @@
-#include "../lib/TMF.h"
+#include "../lib/tfm.h"
 #include "../lib/files.h"
 
 void load_directory()
