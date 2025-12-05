@@ -37,4 +37,25 @@ extern int n_files;
  */
 void load_directory();
 
+/**
+ * @brief Frees the memory allocated for the directory contents.
+ *
+ * This function deallocates the memory used by the global variable `current_dir`
+ * and all of its elements, which represent the entries of the previously loaded
+ * directory. It also resets the global variable `n_files` to zero and sets
+ * `current_dir` to NULL to indicate that no directory contents are currently loaded.
+ *
+ * If there is no memory allocated (i.e., `n_files` is zero or `current_dir` is NULL),
+ * the function does nothing.
+ *
+ * @note This function assumes that `current_dir` and `n_files` are properly
+ * initialized and accessible. It should only be called after a directory
+ * has been loaded via a function such as `load_directory`.
+ *
+ * Global Variables:
+ * - `struct dirent **current_dir`: Array of directory entries to be freed.
+ * - `int n_files`: The number of loaded directory entries, which will be reset to zero.
+ */
+void free_directory();
+
 #endif
