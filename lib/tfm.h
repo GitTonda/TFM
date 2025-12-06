@@ -13,9 +13,6 @@
 
 #include "console.h"
 #include "files.h"
-
-void update_Screen();
-
-void update_terminal_size();
+#include "ui.h"
 
 #endif
