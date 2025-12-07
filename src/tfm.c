@@ -28,6 +28,8 @@ int main()
                 selected = selected > 2 ? selected - 1 : n_files - 1;
                 if (selected < scroll_offset) scroll_offset = selected;
                 if (selected >= scroll_offset + list_height) scroll_offset = selected - list_height + 1;
+
+                update_Screen();
                 break;
             }
 
@@ -36,6 +38,8 @@ int main()
                 selected = selected < n_files - 1 ? selected + 1 : 2;
                 if (selected < scroll_offset) scroll_offset = selected;
                 if (selected >= scroll_offset + list_height) scroll_offset = selected - list_height + 1;
+
+                update_Screen();
                 break;
             }
 
@@ -66,6 +70,8 @@ int main()
                                 scroll_offset = selected - list_height + 2;
                             break;
                         }
+
+                update_Screen();
                 break;
             }
 
@@ -80,6 +86,28 @@ int main()
                     selected = 2;
                     scroll_offset = 0;
                 }
+
+                update_Screen();
+                break;
+            }
+
+            case 'h':
+            case 'H':
+            {
+                current_command = input;
+                update_Screen();
+                break;
+            }
+
+            case 'r':
+            case 'R':
+            {
+                if (get_confirmation(current_dir[selected]->d_name))
+                {
+                    delete();
+                    selected = 2;
+                }
+                update_Screen();
                 break;
             }
 
@@ -95,8 +123,6 @@ int main()
             // No command associated to key
             default: break;
         }
-
-        update_Screen();
     }
 
     return 0;

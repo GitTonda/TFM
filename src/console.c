@@ -22,6 +22,7 @@ void disableRawMode()
     printf("\033[?25h");
 }
 
+// TODO clean code here too
 int readKey()
 {
     char c;

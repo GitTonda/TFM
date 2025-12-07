@@ -58,4 +58,9 @@ void load_directory();
  */
 void free_directory();
 
+unsigned long long calculate_folder_size(const char *path, int depth);
+unsigned long long get_directory_size();
+
+void delete();
+
 #endif

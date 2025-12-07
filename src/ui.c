@@ -4,153 +4,128 @@
 const char* get_file_color(struct dirent *entry)
 {
     if (entry->d_type == DT_DIR) return BLUE;
-
     if (entry->d_type == DT_REG)
     {
         struct stat sb;
         if (stat(entry->d_name, &sb) == 0 && sb.st_mode & S_IXUSR) return GREEN;
     }
-
     return RESET;
-}
-
-unsigned long long calculate_folder_size(const char *path, int current_depth)
-{
-    if (current_depth > MAX_DEPTH) return 0;
-
-    unsigned long long size = 0;
-    DIR *d = opendir(path);
-
-    if (!d) return 0;
-
-    struct dirent *entry;
-    struct stat sb;
-    char full_path[PATH_MAX];
-
-    while ((entry = readdir(d)) != NULL)
-    {
-        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) continue;
-
-        snprintf(full_path, sizeof(full_path), "%s/%s", path, entry->d_name);
-
-        if (lstat(full_path, &sb) == 0)
-        {
-            size += sb.st_size;
-            if (S_ISDIR(sb.st_mode)) size += calculate_folder_size(full_path, current_depth + 1);
-        }
-    }
-
-    closedir(d);
-    return size;
-}
-
-unsigned long long get_directory_size()
-{
-    unsigned long long total_bytes = 0;
-    struct stat sb;
-
-    for (int i = 0; i < n_files; i++)
-    {
-        struct dirent *entry = current_dir[i];
-
-        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) continue;
-
-        if (lstat(entry->d_name, &sb) == 0)
-        {
-            if (S_ISDIR(sb.st_mode))
-            {
-                total_bytes += sb.st_size;
-                total_bytes += calculate_folder_size(entry->d_name, 1);
-            }
-            else total_bytes += sb.st_size;
-        }
-    }
-
-    return total_bytes;
 }
 
 void update_terminal_size()
 {
     struct winsize w;
     ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
-    list_height = w.ws_row - 8;
+    list_height = w.ws_row - (HEADER_SIZE + FOOTER_SIZE);
     if (list_height < 1) list_height = 1;
 }
 
-void update_Screen()
+// TODO clean
+void draw_header()
 {
+    char cwd[PATH_MAX];
+    char *pstr = getcwd(cwd, sizeof(cwd)) ? cwd : "Error";
+
+    long tsize = get_directory_size();
+    char sstr[64];
+    if (tsize > 1073741824) snprintf(sstr, 64, "Size: %.2f GB", (double)tsize / 1073741824);
+    else if (tsize > 1048576) snprintf(sstr, 64, "Size: %.2f MB", (double)tsize / 1048576);
+    else snprintf(sstr, 64, "Size: %ld bytes", tsize);
+
+    printf("%s╔", COLOR_HEADER);
+    for (int k = 0; k < BOX_WIDTH + 2; k++) printf(H_DOUBLE);
+    printf("╗%s\033[K\r\n", COLOR_RESET);
+
+    // Path Logic
+    int plen = strlen(pstr);
+    if (plen <= BOX_WIDTH) printf("%s%s %-*s %s%s\033[K\r\n", COLOR_HEADER, V_DOUBLE, BOX_WIDTH, pstr, V_DOUBLE, COLOR_RESET);
+    else printf("%s%s ...%-*s %s%s\033[K\r\n", COLOR_HEADER, V_DOUBLE, BOX_WIDTH - 3, pstr + (plen - (BOX_WIDTH - 3)), V_DOUBLE, COLOR_RESET);
+
+    printf("%s%s %-*s %s%s\033[K\r\n", COLOR_HEADER, V_DOUBLE, BOX_WIDTH, sstr, V_DOUBLE, COLOR_RESET);
+
+    printf("%s╚", COLOR_HEADER);
+    for (int k = 0; k < BOX_WIDTH + 2; k++) printf(H_DOUBLE);
+    printf("╝%s\033[K\r\n", COLOR_RESET);
+}
+
+void draw_footer(const char *color_border, const char *color_content, const char *text) {
+    // 1. Top Border
+    printf("%s╔", color_border);
+    for (int k = 0; k < BOX_WIDTH + 2; k++) printf(H_DOUBLE);
+    printf("╗%s\033[K\r\n", COLOR_RESET);
+
+    // 2. Content Line
+    // We print the color_content code, then the text, then enough spaces to fill the box
+    // The background color will naturally paint those spaces.
+    printf("%s%s %-*.*s %s%s%s%s\033[K\r\n",
+           color_border, V_DOUBLE,     // Left Border
+           BOX_WIDTH, BOX_WIDTH, text, // Text with padding logic handled by printf
+           COLOR_RESET, color_border, V_DOUBLE, COLOR_RESET); // Right Border
+
+    // 3. Bottom Border
+    printf("%s╚", color_border);
+    for (int k = 0; k < BOX_WIDTH + 2; k++) printf(H_DOUBLE);
+    printf("╝%s\033[K\r\n", COLOR_RESET);
+}
+
+void update_Screen() {
     update_terminal_size();
     printf(HOME);
 
-    // -- HEADER --
-    char cwd[PATH_MAX];
-    char *path_str = getcwd(cwd, sizeof(cwd)) ? cwd : "Error getting path";
-    long total_size = get_directory_size();
-    char size_str[64];
-    if (total_size > 1024 * 1024 * 1024) snprintf(size_str, 64, "Size: %.2f GB", (double)total_size / (1024 * 1024 * 1024));
-    else if (total_size > 1024 * 1024)   snprintf(size_str, 64, "Size: %.2f MB", (double)total_size / (1024 * 1024));
-    else if (total_size > 1024)          snprintf(size_str, 64, "Size: %.2f KB", (double)total_size / 1024);
-    else                                 snprintf(size_str, 64, "Size: %ld bytes", total_size);
-    printf("╔");
-    for (int k = 0; k < BOX_WIDTH + 2; k++) printf("═");
-    printf("╗\r\n");
-    int path_len = (int)strlen(path_str);
-    printf("║ ");
-    if (path_len <= BOX_WIDTH)
-    {
-        printf("%s", path_str);
-        for (int p = 0; p < BOX_WIDTH - path_len; p++) printf(" ");
-    }
-    else
-    {
-        int visible_len = BOX_WIDTH - 3;
-        const char *tail_ptr = path_str + (path_len - visible_len);
-        printf("...%s", tail_ptr);
-    }
-    printf(" ║\r\n");
-    int size_len = (int)strlen(size_str);
-    if (size_len > BOX_WIDTH) size_len = BOX_WIDTH;
-    int size_pad = BOX_WIDTH - size_len;
-    printf("║ %s", size_str);
-    for (int p = 0; p < size_pad; p++) printf(" ");
-    printf(" ║\r\n");
-    printf("╚");
-    for (int k = 0; k < BOX_WIDTH + 2; k++) printf("═");
-    printf("╝\r\n");
+    draw_header();
 
-    // -- DIRECTORY CONTENTS --
-    printf("┌");
-    for (int k = 0; k < BOX_WIDTH + 2; k++) printf("─");
-    printf("┐\r\n");
-    for (int i = scroll_offset > 2 ? scroll_offset : 2; i < scroll_offset + list_height; i++)
-    {
+    // --- LIST ---
+    printf("┌"); for (int k = 0; k < BOX_WIDTH + 2; k++) printf(H_SINGLE); printf("┐\033[K\r\n");
+
+    for (int i = scroll_offset > 2 ? scroll_offset : 2; i < scroll_offset + list_height; i++) {
         if (i >= n_files) break;
+        struct dirent *e = current_dir[i];
 
-        struct dirent *entry = current_dir[i];
+        int nlen = strlen(e->d_name);
+        if (nlen > BOX_WIDTH - 2) nlen = BOX_WIDTH - 2;
 
-        const char *select_code = (i == selected) ? INVERT : "";
-        const char *color_code = get_file_color(entry);
-        char decoration = (entry->d_type == DT_DIR) ? '/' : ' ';
-
-        int name_len = (int) strlen(entry->d_name);
-        if (name_len > BOX_WIDTH - 2) name_len = BOX_WIDTH - 2;
-        int padding = BOX_WIDTH - name_len - 1;
-
-        printf("│ ");
-        printf("%s%s", color_code, select_code);
-        printf("%.*s%c", name_len, entry->d_name, decoration);
-        for (int p = 0; p < padding; p++) printf(" ");
-
-        printf("%s", RESET);
-        printf(" │\r\n");
+        printf("│ %s%s%.*s%c%*s%s │\033[K\r\n",
+               get_file_color(e),
+               (i == selected) ? INVERT : "",
+               nlen, e->d_name,
+               (e->d_type == DT_DIR) ? '/' : ' ',
+               BOX_WIDTH - nlen - 1, "", // Padding
+               RESET);
     }
-    printf("└");
-    for (int k = 0; k < BOX_WIDTH + 2; k++) printf("─");
-    printf("┘\r\n");
+    printf("└"); for (int k = 0; k < BOX_WIDTH + 2; k++) printf(H_SINGLE); printf("┘\033[K\r\n");
 
-    // FOOTER
-    // TODO footer
+    // --- 3. FOOTER (GREEN THEME) ---
+    char footer_text[64];
+    char cmd_char = (current_command == 0) ? ' ' : current_command;
+    snprintf(footer_text, 64, "CMD: [%c]  Navigate: Arrows", cmd_char);
 
-    printf (CLEAR);
+    // Pass 'COLOR_FOOTER' for borders, and empty string "" for content (standard black bg)
+    draw_footer(COLOR_FOOTER, "", footer_text);
+
+    // Clear everything below just in case list shrank
+    printf("\033[J");
     fflush(stdout);
+}
+
+bool get_confirmation(const char *filename) {
+    // 1. Prepare red footer text
+    char msg[128];
+    snprintf(msg, sizeof(msg), "DELETE '%s'? (y/n)", filename);
+
+    // 2. Move cursor up 3 lines (overwrite existing footer)
+    // We assume footer is 3 lines tall.
+    printf("\033[3A");
+
+    // 3. Draw Red Footer
+    draw_footer(COLOR_WARN, COLOR_WARN, msg);
+    fflush(stdout);
+
+    // 4. Blocking Input
+    char input;
+    while (1) {
+        if (read(STDIN_FILENO, &input, 1) == 1) {
+            if (input == 'y' || input == 'Y') return true;
+            if (input == 'n' || input == 'N' || input == 'q' || input == 27) return false;
+        }
+    }
 }
