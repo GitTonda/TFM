@@ -26,7 +26,8 @@ void free_directory()
 }
 
 // TODO clean code here
-unsigned long long calculate_folder_size(const char *path, int depth) {
+unsigned long long calculate_folder_size(const char *path, int depth)
+{
     if (depth > MAX_DEPTH) return 0;
     // Skip virtual filesystems to prevent inaccurate 128TB sizes
     if (strncmp(path, "/proc", 5) == 0 || strncmp(path, "/sys", 4) == 0 ||
@@ -52,7 +53,8 @@ unsigned long long calculate_folder_size(const char *path, int depth) {
     return size;
 }
 
-unsigned long long get_directory_size() {
+unsigned long long get_directory_size()
+{
     unsigned long long total = 0;
     struct stat sb;
     for (int i = 0; i < n_files; i++) {
@@ -69,8 +71,29 @@ unsigned long long get_directory_size() {
 
 void delete()
 {
-    char command[1024];
-    snprintf(command, sizeof(command), "rm -rf \"%s\"", current_dir[selected]->d_name);
-    system(command);
+    char* answer = get_input(current_dir[selected]->d_name, "DELETE? (y/n)", COLOR_WARN, COLOR_WARN);
+    if (answer != NULL && (strcmp(answer, "y") == 0 || strcmp(answer, "Y") == 0))
+    {
+        char command[1024];
+        snprintf(command, sizeof(command), "rm -rf \"%s\"", current_dir[selected]->d_name);
+        system(command);
+        selected = 2;
+    }
+
     load_directory();
+    update_Screen();
+}
+
+void create()
+{
+    char* new_file = get_input(NULL, "New File Name", COLOR_HEADER, COLOR_RESET);
+    if (new_file != NULL)
+    {
+        char command[1024];
+        snprintf(command, sizeof(command), "%s \"%s\"",new_file[strlen(new_file) - 1] == '/' ? "mkdir" : "touch", new_file);
+        system(command);
+    }
+
+    load_directory();
+    update_Screen();
 }

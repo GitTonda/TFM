@@ -62,5 +62,6 @@ unsigned long long calculate_folder_size(const char *path, int depth);
 unsigned long long get_directory_size();
 
 void delete();
+void create();
 
 #endif

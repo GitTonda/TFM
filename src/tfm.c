@@ -102,12 +102,14 @@ int main()
             case 'r':
             case 'R':
             {
-                if (get_confirmation(current_dir[selected]->d_name))
-                {
-                    delete();
-                    selected = 2;
-                }
-                update_Screen();
+                delete();
+                break;
+            }
+
+            case 'n':
+            case 'N':
+            {
+                create();
                 break;
             }
 

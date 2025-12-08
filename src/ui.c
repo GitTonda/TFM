@@ -48,23 +48,24 @@ void draw_header()
     printf("╝%s\033[K\r\n", COLOR_RESET);
 }
 
-void draw_footer(const char *color_border, const char *color_content, const char *text) {
+void draw_footer(const char *color_border, const char *color_content, const char *text)
+{
     // 1. Top Border
     printf("%s╔", color_border);
-    for (int k = 0; k < BOX_WIDTH + 2; k++) printf(H_DOUBLE);
+    for (int k = 0; k < BOX_WIDTH + 2; k++) printf("═");
     printf("╗%s\033[K\r\n", COLOR_RESET);
 
     // 2. Content Line
-    // We print the color_content code, then the text, then enough spaces to fill the box
-    // The background color will naturally paint those spaces.
-    printf("%s%s %-*.*s %s%s%s%s\033[K\r\n",
-           color_border, V_DOUBLE,     // Left Border
-           BOX_WIDTH, BOX_WIDTH, text, // Text with padding logic handled by printf
-           COLOR_RESET, color_border, V_DOUBLE, COLOR_RESET); // Right Border
+    // We inject 'color_content' before the text/padding spaces
+    printf("%s%s %s%-*.*s%s %s%s\033[K\r\n",
+           color_border, "║",
+           color_content,
+           BOX_WIDTH, BOX_WIDTH, text,
+           color_border, "║", COLOR_RESET);
 
     // 3. Bottom Border
     printf("%s╚", color_border);
-    for (int k = 0; k < BOX_WIDTH + 2; k++) printf(H_DOUBLE);
+    for (int k = 0; k < BOX_WIDTH + 2; k++) printf("═");
     printf("╝%s\033[K\r\n", COLOR_RESET);
 }
 
@@ -74,7 +75,6 @@ void update_Screen() {
 
     draw_header();
 
-    // --- LIST ---
     printf("┌"); for (int k = 0; k < BOX_WIDTH + 2; k++) printf(H_SINGLE); printf("┐\033[K\r\n");
 
     for (int i = scroll_offset > 2 ? scroll_offset : 2; i < scroll_offset + list_height; i++) {
@@ -107,25 +107,44 @@ void update_Screen() {
     fflush(stdout);
 }
 
-bool get_confirmation(const char *filename) {
-    // 1. Prepare red footer text
-    char msg[128];
-    snprintf(msg, sizeof(msg), "DELETE '%s'? (y/n)", filename);
+char* get_input(const char *filename, const char *message, const char *color_border, const char *color_content)
+{
+    static char input_buf[256];
+    memset(input_buf, 0, sizeof(input_buf));
+    int index = 0;
 
-    // 2. Move cursor up 3 lines (overwrite existing footer)
-    // We assume footer is 3 lines tall.
-    printf("\033[3A");
+    char display_str[512];
+    char c;
 
-    // 3. Draw Red Footer
-    draw_footer(COLOR_WARN, COLOR_WARN, msg);
-    fflush(stdout);
+    while (1)
+    {
+        if (filename) {
+            snprintf(display_str, sizeof(display_str), "%s '%s': %s_", message, filename, input_buf);
+        } else {
+            snprintf(display_str, sizeof(display_str), "%s: %s_", message, input_buf);
+        }
 
-    // 4. Blocking Input
-    char input;
-    while (1) {
-        if (read(STDIN_FILENO, &input, 1) == 1) {
-            if (input == 'y' || input == 'Y') return true;
-            if (input == 'n' || input == 'N' || input == 'q' || input == 27) return false;
+        // Move up 3 lines to overwrite footer
+        printf("\033[3A");
+        draw_footer(color_border, color_content, display_str);
+        fflush(stdout);
+
+        if (read(STDIN_FILENO, &c, 1) == 1)
+        {
+            if (c == '\r' || c == '\n') {
+                return input_buf; // Return input on Enter
+            }
+            else if (c == 127 || c == '\b') {
+                if (index > 0) input_buf[--index] = '\0';
+            }
+            else if (c == 27) {
+                return NULL; // Cancel on ESC
+            }
+            // If isprint fails for you, try commenting out '&& isprint(c)' to debug
+            else if (index < sizeof(input_buf) - 1 && isprint(c)) {
+                input_buf[index++] = c;
+                input_buf[index] = '\0';
+            }
         }
     }
 }

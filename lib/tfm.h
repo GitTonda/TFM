@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
+#include <ctype.h>
 
 #include "console.h"
 #include "files.h"

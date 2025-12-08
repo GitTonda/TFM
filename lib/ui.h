@@ -30,6 +30,6 @@ extern int selected;
 extern int current_command;
 
 void update_Screen();
-bool get_confirmation(const char *filename);
+char* get_input(const char *filename, const char *message, const char *color_border, const char *color_content);
 
 #endif
